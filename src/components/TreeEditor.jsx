@@ -1,86 +1,63 @@
-import { useState } from 'react';
-import { Code2, RotateCcw } from 'lucide-react';
-import TreeNode from './TreeNode';
-import SummaryPanel from './SummaryPanel';
-import ExportModal from './ExportModal';
+import { useState, useRef, useMemo } from 'react';
+import { Boxes, Code2, RotateCcw } from 'lucide-react';
+import { C } from '@/data/theme';
+import { folder, file, addNode, deleteNode, renameNode, toggleExpand, moveNode } from '@/lib/treeUtils';
 import { buildTree } from '@/lib/treeBuilder';
-import { makeFolder, makeFile, addNode, deleteNode, renameNode, toggleExpand, reorderSiblings } from '@/lib/treeUtils';
 import { generateScript } from '@/lib/scriptGenerator';
+import TreeNode from '@/components/TreeNode';
+import RightPanel from '@/components/RightPanel';
+import ExportModal from '@/components/ExportModal';
+import Btn from '@/components/ui/Btn';
 
 export default function TreeEditor({ projectData, onReset }) {
   const [tree, setTree] = useState(() => buildTree(projectData));
   const [showExport, setShowExport] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
+  const [dragId, setDragId] = useState(null);
+  const [drop, setDrop] = useState(null);
+  const dropRef = useRef(null);
+  dropRef.current = drop;
 
-  const handleToggle = id => setTree(t => toggleExpand(t, id));
-
-  const handleAddChild = (parentId, type) => {
-    const name = type === 'folder' ? 'new_folder' : 'new_file.rs';
-    const newNode = type === 'folder' ? makeFolder(name, []) : makeFile(name);
-    setTree(t => addNode(t, parentId, newNode));
+  const commitMove = () => {
+    const d = dropRef.current;
+    if (dragId && d && dragId !== d.id) setTree(t => moveNode(t, dragId, d.id, d.position));
+    setDragId(null); setDrop(null);
   };
+  const drag = { dragId, setDragId, drop, setDrop, commitMove };
 
-  const handleDelete = id => setTree(t => deleteNode(t, id));
-  const handleRename = (id, name) => setTree(t => renameNode(t, id, name));
-  const handleReorder = (parentId, from, to) => setTree(t => reorderSiblings(t, parentId, from, to));
-
-  const script = generateScript(tree, projectData.projectName, projectData.projectType);
+  const script = useMemo(() => generateScript(tree, projectData.projectName, projectData.projectType), [tree, projectData]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-[#1E2130]">
+    <div className="min-h-screen flex flex-col" style={{ background: C.bg }}>
+      <header className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${C.border}` }}>
         <div className="flex items-center gap-3">
-          <span className="text-[#CE412B] font-bold text-lg">Rustruct</span>
-          <span className="text-gray-600">/</span>
-          <span className="font-mono text-sm text-gray-400">{projectData.projectName}</span>
+          <div className="flex items-center gap-2"><Boxes style={{ width: 20, height: 20, color: C.rust }} /><span className="font-bold text-lg" style={{ color: C.rust }}>Rustruct</span></div>
+          <span style={{ color: C.dim }}>/</span>
+          <span className="font-mono text-sm" style={{ color: C.sub }}>{projectData.projectName}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onReset}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-400 hover:text-gray-200 border border-[#1E2130] rounded-lg hover:bg-[#161922] transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Start Over
-          </button>
-          <button
-            onClick={() => setShowExport(true)}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-sm text-white bg-[#CE412B] hover:bg-[#B33820] rounded-lg transition-colors font-medium"
-          >
-            <Code2 className="w-4 h-4" />
-            Generate Script
-          </button>
+        <div className="flex items-center gap-2">
+          <Btn variant="ghost" onClick={onReset}><RotateCcw style={{ width: 14, height: 14 }} />Start over</Btn>
+          <Btn variant="primary" onClick={() => setShowExport(true)}><Code2 style={{ width: 15, height: 15 }} />Generate script</Btn>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 p-6 overflow-auto">
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-sm font-medium text-gray-400">Project Structure</h2>
-            <span className="text-xs text-gray-600">· Double-click to rename · Hover for actions</span>
+        <div className="flex-1 overflow-auto p-5" onDragOver={e => e.preventDefault()}>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-sm font-medium" style={{ color: C.sub }}>Project structure</h2>
+            <span className="text-xs" style={{ color: C.dim }}>drag to rearrange · double-click to rename · hover for actions · click a file to preview</span>
           </div>
-          <TreeNode
-            node={tree}
-            depth={0}
-            parentId={null}
-            index={0}
-            siblingCount={1}
-            onToggle={handleToggle}
-            onAddChild={handleAddChild}
-            onDeleteNode={handleDelete}
-            onRenameNode={handleRename}
-            onReorder={handleReorder}
-          />
+          <TreeNode node={tree} depth={0} parentId={null} index={0} siblingCount={1} drag={drag} sel={selectedId}
+            onToggle={id => setTree(t => toggleExpand(t, id))}
+            onAdd={(pid, type) => setTree(t => addNode(t, pid, type === 'folder' ? folder('new_folder', []) : file('new_file.rs')))}
+            onDelete={id => { setTree(t => deleteNode(t, id)); if (selectedId === id) setSelectedId(null); }}
+            onRename={(id, n) => setTree(t => renameNode(t, id, n))}
+            onSelect={setSelectedId} />
         </div>
-
-        <SummaryPanel projectData={projectData} tree={tree} />
+        <RightPanel tree={tree} projectData={projectData} selectedId={selectedId} />
       </div>
 
-      {showExport && (
-        <ExportModal
-          script={script}
-          projectName={projectData.projectName}
-          onClose={() => setShowExport(false)}
-        />
-      )}
+      {showExport && <ExportModal script={script} projectName={projectData.projectName} onClose={() => setShowExport(false)} />}
     </div>
   );
 }

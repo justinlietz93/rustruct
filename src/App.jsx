@@ -1,61 +1,21 @@
-import { Toaster } from "@/components/ui/toaster"
-import { QueryClientProvider } from '@tanstack/react-query'
-import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import PageNotFound from './lib/PageNotFound';
-import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-import ScrollToTop from './components/ScrollToTop';
-// Add page imports here
-import Home from './pages/Home';
+import { useState } from 'react';
+import StartScreen from '@/components/StartScreen';
+import Questionnaire from '@/components/Questionnaire';
+import TreeEditor from '@/components/TreeEditor';
 
-const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+export default function App() {
+  const [stage, setStage] = useState('start');
+  const [projectData, setProjectData] = useState(null);
 
-  // Show loading spinner while checking app public settings or auth
-  if (isLoadingPublicSettings || isLoadingAuth) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  // Handle authentication errors
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
-    }
-  }
-
-  // Render the main app
   return (
-    <Routes>
-      {/* Add your page Route elements here */}
-      <Route path="/" element={<Home />} />
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
+    <div style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
+      {stage === 'start' && <StartScreen onStart={() => setStage('quiz')} />}
+      {stage === 'quiz' && (
+        <Questionnaire onBack={() => setStage('start')} onComplete={data => { setProjectData(data); setStage('editor'); }} />
+      )}
+      {stage === 'editor' && projectData && (
+        <TreeEditor projectData={projectData} onReset={() => { setProjectData(null); setStage('start'); }} />
+      )}
+    </div>
   );
-};
-
-
-function App() {
-
-  return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <ScrollToTop />
-          <AuthenticatedApp />
-        </Router>
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
-  )
 }
-
-export default App

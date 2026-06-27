@@ -1,50 +1,58 @@
-import { makeFolder, makeFile } from './treeUtils';
+import { folder, file } from '@/lib/treeUtils';
 
-export function buildTree(answers) {
-  const { projectName, projectType, crates, folders, configFiles, customSrcDirs } = answers;
+export function buildTree(a) {
+  const kids = [];
 
-  const rootChildren = [];
+  // Root config files. Cargo.toml template depends on project shape.
+  if (a.configFiles.includes('cargo_toml')) {
+    const t = a.projectType === 'workspace' ? 'cargo_workspace' : 'cargo_single';
+    kids.push(file('Cargo.toml', t, a.deps));
+  }
+  if (a.configFiles.includes('gitignore'))     kids.push(file('.gitignore', 'gitignore'));
+  if (a.configFiles.includes('readme'))        kids.push(file('README.md', 'readme'));
+  if (a.configFiles.includes('rust_toolchain'))kids.push(file('rust-toolchain.toml', 'toolchain'));
 
-  if (configFiles.includes('cargo_toml')) rootChildren.push(makeFile('Cargo.toml'));
-  if (configFiles.includes('gitignore')) rootChildren.push(makeFile('.gitignore'));
-  if (configFiles.includes('readme')) rootChildren.push(makeFile('README.md'));
-  if (configFiles.includes('rust_toolchain')) rootChildren.push(makeFile('rust-toolchain.toml'));
-
-  if (projectType === 'binary' || projectType === 'library') {
-    const srcChildren = [];
-    if (projectType === 'binary') {
-      srcChildren.push(makeFile('main.rs'));
+  if (a.projectType === 'binary' || a.projectType === 'library') {
+    const src = [];
+    if (a.projectType === 'binary') {
+      src.push(file('main.rs', a.mainTemplate || 'main_plain', a.deps));
     } else {
-      srcChildren.push(makeFile('lib.rs'));
+      src.push(file('lib.rs', 'lib_root'));
     }
-    customSrcDirs.forEach(dir => {
-      srcChildren.push(makeFolder(dir, [makeFile('mod.rs')]));
+    // Root-level src files from a submodule preset (e.g. error.rs).
+    (a.srcRootFiles || []).forEach(name => {
+      if (name === 'error') src.push(file('error.rs', 'error_rs'));
     });
-    rootChildren.push(makeFolder('src', srcChildren));
+    // Submodule directories, each with an explanatory mod.rs (preset-aware).
+    a.customSrcDirs.forEach(dir => {
+      let tmpl = 'mod_generic';
+      if (a.srcPreset === 'web_handlers' && dir === 'routes')   tmpl = 'routes_rs';
+      if (a.srcPreset === 'web_handlers' && dir === 'handlers') tmpl = 'handlers_rs';
+      src.push(folder(dir, [file('mod.rs', tmpl === 'mod_generic' ? 'mod_generic' : tmpl)]));
+    });
+    kids.push(folder('src', src));
   }
 
-  if (projectType === 'workspace') {
-    const cratesChildren = crates.map(crate => {
-      const crateSrcChildren = crate.type === 'bin'
-        ? [makeFile('main.rs')]
-        : [makeFile('lib.rs')];
-      return makeFolder(crate.name, [
-        makeFile('Cargo.toml'),
-        makeFolder('src', crateSrcChildren)
+  if (a.projectType === 'workspace') {
+    const crates = a.crates.map(cr => {
+      const entry = cr.type === 'bin'
+        ? file('main.rs', cr.template || 'main_plain', cr.deps)
+        : file('lib.rs', cr.template || 'lib_root', cr.deps);
+      return folder(cr.name, [
+        file('Cargo.toml', 'cargo_member', cr.deps),
+        folder('src', [entry]),
       ]);
     });
-    rootChildren.push(makeFolder('crates', cratesChildren));
+    kids.push(folder('crates', crates));
   }
 
-  if (folders.includes('docs')) rootChildren.push(makeFolder('docs', []));
-  if (folders.includes('examples')) rootChildren.push(makeFolder('examples', []));
-  if (folders.includes('tests')) rootChildren.push(makeFolder('tests', []));
-  if (folders.includes('benches')) rootChildren.push(makeFolder('benches', []));
-  if (folders.includes('github')) {
-    rootChildren.push(makeFolder('.github', [makeFolder('workflows', [makeFile('ci.yml')])]));
-  }
+  if (a.folders.includes('docs'))     kids.push(folder('docs', []));
+  if (a.folders.includes('examples')) kids.push(folder('examples', []));
+  if (a.folders.includes('tests'))    kids.push(folder('tests', []));
+  if (a.folders.includes('benches'))  kids.push(folder('benches', []));
+  if (a.folders.includes('github'))   kids.push(folder('.github', [folder('workflows', [file('ci.yml', 'ci_yml')])]));
 
-  const root = makeFolder(projectName, rootChildren);
+  const root = folder(a.projectName, kids);
   root.isRoot = true;
   return root;
 }

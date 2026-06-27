@@ -1,42 +1,29 @@
-import { Package, ListChecks, GitBranch, ArrowRight } from 'lucide-react';
+import { Boxes, GripVertical, Sparkles, ArrowRight, FileCode } from 'lucide-react';
+import { C } from '@/data/theme';
+import Btn from '@/components/ui/Btn';
 
 export default function StartScreen({ onStart }) {
-  const steps = [
-    { icon: ListChecks, title: 'Plan', desc: 'Answer a guided questionnaire about your Rust project' },
-    { icon: Package, title: 'Visualize', desc: 'Inspect and edit the folder tree in real time' },
-    { icon: GitBranch, title: 'Export', desc: 'Generate a bash script that scaffolds everything' },
-  ];
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-6 py-16">
-      <div className="max-w-2xl w-full text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#1E2130] bg-[#161922] text-xs text-gray-400 mb-8">
-          <span className="w-2 h-2 rounded-full bg-[#CE412B]" />
-          Rust project scaffolding tool
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: C.bg }}>
+      <div className="max-w-lg text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-6" style={{ background: C.rustGlow, border: `1px solid ${C.rust}33` }}>
+          <Boxes style={{ width: 32, height: 32, color: C.rust }} />
         </div>
-        <h1 className="text-6xl font-bold tracking-tight mb-4">
-          <span className="text-[#CE412B]">R</span>ustruct
-        </h1>
-        <p className="text-lg text-gray-400 mb-12">
-          Plan, visualize, and scaffold your Rust project structure in three simple steps.
+        <h1 className="text-3xl font-bold mb-3" style={{ color: C.text }}>Rustruct</h1>
+        <p className="mb-2 leading-relaxed" style={{ color: C.sub }}>
+          Scaffold a Rust project by answering a few questions. Learn the reasoning behind each choice, start from a preset, then shape the tree by hand.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-          {steps.map((step, i) => (
-            <div key={i} className="p-5 rounded-xl border border-[#1E2130] bg-[#161922] text-left">
-              <step.icon className="w-6 h-6 text-[#CE412B] mb-3" />
-              <div className="text-sm text-gray-500 mb-1">Step {i + 1}</div>
-              <h3 className="font-semibold text-gray-200 mb-1">{step.title}</h3>
-              <p className="text-sm text-gray-500">{step.desc}</p>
-            </div>
-          ))}
+        <p className="mb-8 text-sm" style={{ color: C.dim }}>
+          You leave with a single bash script that builds the whole structure, commented starter files included.
+        </p>
+        <Btn variant="primary" onClick={onStart} style={{ padding: '12px 24px', fontSize: 15 }}>
+          Start <ArrowRight style={{ width: 17, height: 17 }} />
+        </Btn>
+        <div className="flex items-center justify-center gap-5 mt-8 text-xs" style={{ color: C.dim }}>
+          <span className="flex items-center gap-1.5"><Sparkles style={{ width: 13, height: 13 }} /> Domain presets</span>
+          <span className="flex items-center gap-1.5"><GripVertical style={{ width: 13, height: 13 }} /> Drag-and-drop tree</span>
+          <span className="flex items-center gap-1.5"><FileCode style={{ width: 13, height: 13 }} /> Commented boilerplate</span>
         </div>
-        <button
-          onClick={onStart}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-[#CE412B] hover:bg-[#B33820] text-white font-medium transition-colors"
-        >
-          New Project
-          <ArrowRight className="w-4 h-4" />
-        </button>
       </div>
     </div>
   );

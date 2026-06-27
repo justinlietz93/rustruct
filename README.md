@@ -1,77 +1,102 @@
-# Base44 Project
+# Rustruct
 
-Use this repository to run and edit the app locally, then publish changes back through Base44.
+Interactive Rust project scaffolding tool. Answer a few questions, learn the
+reasoning behind each choice, start from a domain preset, rearrange the file
+tree by hand, and walk away with a single bash script that builds the whole
+structure with commented starter files.
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+Built for people learning Rust: the goal is to make the thought process behind
+designing a new project visible, and to cut the friction of going from idea to
+a working `cargo build`.
 
-## Prerequisites
-
-1. Clone the repository using the project's Git URL.
-2. Navigate to the project directory.
-3. Install dependencies: `npm install`.
-4. Install the Base44 CLI: `npm install -g base44@latest`.
-
-See the [Base44 CLI docs](https://docs.base44.com/developers/references/cli/get-started/overview) if you want to run Base44 commands directly.
-
-## Run Locally
-
-Run the full local development environment from the project root:
+## Run
 
 ```bash
-base44 dev
-```
-
-`base44 dev` starts the local Base44 development backend and, when this app is configured for it, also starts the frontend dev server for you. Use the frontend URL printed by the command.
-
-For example, when the Base44 project config includes a `serveCommand`, `base44 dev` can launch the frontend too:
-
-```json5
-{
-  "site": {
-    "serveCommand": "npm run dev"
-  }
-}
-```
-
-In a Base44 project this lives in `base44/config.jsonc`.
-
-## Run Only The Frontend
-
-If you only want to work on the frontend against the hosted Base44 backend, run:
-
-```bash
+npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite.
+Then open the URL Vite prints. Production build is `npm run build`, preview with
+`npm run preview`.
 
-## Use The Hosted Backend
+No backend, no accounts, no network calls. Everything runs in the browser.
 
-For frontend-only development, create or update `.env.local` in the project root:
+## What it does
 
-```bash
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=https://your-app.base44.app
+1. **Explanatory questionnaire.** Every step carries a tip explaining *why* the
+   choice matters, not just what it is. Per-option help on every folder and
+   config file.
+2. **Domain presets.** On the workspace step, one click lays out a whole crate
+   split (Web Service, ML Pipeline, Networking, CLI Suite, Game), wires the
+   right dependencies, and picks the matching entry-point template per crate.
+3. **Previewable layout presets.** On the `src/` step, preview the exact module
+   tree and dependencies a layout adds before applying it.
+4. **Drag-and-drop tree.** Reorder and reparent files by dragging. Drop on the
+   top/bottom edge of a row to place before/after it, drop on the middle of a
+   folder to move inside. A folder cannot be dropped into its own descendant.
+5. **Commented boilerplate.** Files marked "has starter" carry real, compilable
+   Rust where comments explain each line. Click any file to preview it. The
+   exported script writes all of it.
+
+## Project structure
+
+```
+src/
+  main.jsx                 entry point
+  App.jsx                  root state machine: start -> questionnaire -> editor
+  index.css                Tailwind directives + base page styling
+
+  data/                    the knowledge the tool encodes
+    theme.js               color palette (applied via inline style)
+    deps.js                dependency registry: key -> Cargo line + explanation
+    templates.js           boilerplate file templates (the commented Rust)
+    presets.js             crate presets + src layout presets
+
+  lib/                     pure logic, no UI
+    treeUtils.js           tree model + operations (incl. moveNode for drag/drop)
+    treeBuilder.js         answers -> file tree
+    scriptGenerator.js     file tree -> bash script + per-file content resolution
+
+  components/
+    StartScreen.jsx
+    Questionnaire.jsx      the multi-step form with tips and stage presets
+    TreeEditor.jsx         drag-and-drop orchestration + export
+    TreeNode.jsx           one recursive, draggable tree row
+    RightPanel.jsx         file preview + project summary
+    ExportModal.jsx        script view, copy, download
+    ui/
+      Btn.jsx
+      Tip.jsx
+      PresetCard.jsx
+      SrcPresetPreview.jsx
 ```
 
-`VITE_BASE44_APP_ID` identifies the Base44 app.
+The split is deliberate: `data/` is *what the tool knows* (presets, templates,
+deps), `lib/` is *how it transforms that into output*, and `components/` is
+*how a user drives it*. To change behavior you usually touch only `data/`.
 
-`VITE_BASE44_APP_BASE_URL` tells the Base44 Vite plugin where to send local `/api` requests. Point it at your deployed Base44 app URL when you want the local frontend to use the hosted backend.
+## Extending it
 
-When you use `base44 dev`, the command injects the local Base44 values for you, so `.env.local` is mainly needed for frontend-only workflows.
+**Add a dependency** in `src/data/deps.js`:
 
-## Publish Your Changes
-
-After pushing your changes to git, open the Base44 dashboard and publish the app:
-
-```bash
-base44 dashboard open
+```js
+reqwest: { line: 'reqwest = "0.12"', note: 'HTTP client' },
 ```
 
-## Docs & Support
+**Add a boilerplate template** in `src/data/templates.js`. A template is a
+function of context returning the file string. Reference it by key from a
+preset or attach it to a file node in `treeBuilder.js`.
 
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
+**Add a crate preset** in `src/data/presets.js` under `CRATE_PRESETS`. Name the
+crates, give each a `type`, an entry-point `template`, and a list of `deps`
+keys. The questionnaire and tree pick it up automatically.
 
-Base44 CLI command reference: [https://docs.base44.com/developers/references/cli/commands/introduction](https://docs.base44.com/developers/references/cli/commands/introduction)
+**Add a src layout preset** under `SRC_PRESETS`: list the `dirs`, the `deps`,
+the `mainTemplate`, and any root-level files. It becomes previewable with no
+other changes.
 
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+## Output
+
+The generated script is idempotent (`mkdir -p`, quoted heredocs) and safe to
+read before running. The quoted `'RUSTRUCT_EOF'` terminator keeps `$` and
+backticks in the embedded Rust literal, so file contents are written exactly.
